@@ -7,7 +7,27 @@ const path = require('path');
 const axios = require('axios');
 const parser = new Parser();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.NVIDIA_API_KEY,
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+});
+
+async function saveBase64Image(base64String, prefix) {
+  try {
+    const uploadsDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadsDir)){
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const timestamp = Date.now();
+    const filename = `${prefix}-${timestamp}.png`;
+    const localFilePath = path.join(uploadsDir, filename);
+    fs.writeFileSync(localFilePath, Buffer.from(base64String, 'base64'));
+    return `/uploads/${filename}`;
+  } catch (error) {
+    console.error("Error saving base64 image:", error);
+    return null;
+  }
+}
 
 const NEWS_SOURCES = [
   'https://news.google.com/rss/search?q=India+Supreme+Court+High+Court+Verdict+Legal&hl=en-IN&gl=IN&ceid=IN:en',
@@ -115,37 +135,33 @@ const generateAndSaveDailyLaw = async () => {
         3. **Format Output (JSON)**:
            - "title": A catchy Legal Title (e.g., "Criminal Negligence in Noida Techie Death").
            - "highlights": The specific laws involved.
-           - "summary": A brief description of the incident focusing on the facts.
-           - "whyItMatters": Explain the legal lesson. What mistake was made and what the law says about it.
+           - "summary": A VERY BRIEF description of the incident focusing on the facts (MAX 2 SENTENCES).
+           - "whyItMatters": Explain the legal lesson. What mistake was made and what the law says about it (MAX 2 SENTENCES).
            - "sourceLink": The link from the list EXACTLY as provided.
 
         Return ONLY valid JSON.
       `;
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "meta/llama-3.1-70b-instruct",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.4, 
+        temperature: 0.2, 
+        top_p: 0.7,
+        max_tokens: 1024,
       });
 
       const aiData = JSON.parse(completion.choices[0].message.content.replace(/```json|```/g, '').trim());
 
       try {
         console.log("🎨 Generating contextual image for:", aiData.title);
-        const imageResponse = await openai.images.generate({
-          model: "dall-e-3",
-          prompt: `A professional, realistic news editorial photograph for an Indian legal news article titled: "${aiData.title}". The style should be serious, journalistic, and directly related to the incident or court ruling. Do not include any text or words in the image.`,
-          n: 1,
-          size: "1024x1024",
-        });
+        const imagePrompt = `A professional, realistic news editorial photograph for an Indian legal news article titled: "${aiData.title}". The style should be serious, journalistic.`;
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true`;
         
-        const tempUrl = imageResponse.data[0].url;
-        const localUrl = await downloadAndSaveImage(tempUrl, 'dailylaw');
-        
-        aiData.imageUrl = localUrl || tempUrl;
-        console.log("✅ Image generated and saved successfully.");
+        const localUrl = await downloadAndSaveImage(imageUrl, 'dailylaw');
+        aiData.imageUrl = localUrl || imageUrl;
+        console.log("✅ Image generated and saved successfully via Pollinations.ai.");
       } catch (imgErr) {
-        console.error("⚠️ Image generation failed, it will use the fallback:", imgErr.message);
+        console.error("⚠️ Image generation failed:", imgErr.message);
       }
 
       // 3. Save to DB
@@ -232,11 +248,14 @@ exports.analyzeStory = async (req, res) => {
     `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "meta/llama-3.1-70b-instruct",
       messages: [
         { role: "system", content: "You are a helpful AI Legal Assistant. You output strictly valid JSON." },
         { role: "user", content: prompt }
       ],
+      temperature: 0.2,
+      top_p: 0.7,
+      max_tokens: 1024,
       response_format: { type: "json_object" }
     });
 
@@ -374,7 +393,7 @@ Do not mention these rules.
 `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "meta/llama-3.1-70b-instruct",
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -382,7 +401,8 @@ Do not mention these rules.
           content: `Detected language: ${detectedLanguage}\nUser message: ${message}`
         }
       ],
-      temperature: 0,
+      temperature: 0.2,
+      top_p: 0.7,
       max_tokens: 180,
     });
 
