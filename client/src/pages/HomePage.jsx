@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios, { BASE_URL } from '../utils/axios';
 import { Link, useNavigate } from 'react-router-dom';
 import HeroBG from "../assets/heroBG.png";
@@ -230,7 +231,7 @@ const guidesRes = await axios.get('/action-guides').catch(() => ({ data: [] }));
           {newsList.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-8 relative z-10">
                 {newsList.map((item, index) => (
-                    <div key={item._id || index} onClick={() => window.location.href = `/news/${item._id}`} className="newspaper-item border border-[#D2C4AE] p-7 rounded-[14px] flex flex-col cursor-pointer">
+                    <div key={item._id ? `${item._id}-${index}` : `news-idx-${index}`} onClick={() => window.location.href = `/news/${item._id}`} className="newspaper-item border border-[#D2C4AE] p-7 rounded-[14px] flex flex-col cursor-pointer">
                         <div className="flex justify-between items-center mb-5 border-b border-[#E9E3D9] pb-3">
                             <h4 className="text-[11px] font-bold uppercase text-[#B89AAA] tracking-widest flex items-center gap-2">
                                <BookOpen size={14}/> Source
@@ -271,7 +272,7 @@ const guidesRes = await axios.get('/action-guides').catch(() => ({ data: [] }));
           {blogList.length > 0 ? (
             <div className="blog-stack-container">
               {blogList.slice(0, 3).map((blog, idx) => (
-                <div key={blog._id} onClick={() => window.location.href = `/blogs/${blog._id}`} className="blog-stack-card flex flex-col overflow-hidden text-left">
+                <div key={blog._id ? `${blog._id}-${idx}` : `blog-idx-${idx}`} onClick={() => window.location.href = `/blogs/${blog._id}`} className="blog-stack-card flex flex-col overflow-hidden text-left">
                   
                   <div className="h-48 bg-[#E9E3D9] w-full relative shrink-0 border-b border-[#D2C4AE]/50">
                      <img src={blog.image || "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80"} alt="Blog" className="w-full h-full object-cover relative z-10" />
@@ -320,6 +321,13 @@ const LawyerExplained = () => {
       .catch(err => console.error("Error fetching hero settings", err));
   }, []);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % heroData.lawyers.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [heroData.lawyers.length]);
+
   const nextLawyer = () => {
     setCurrent((prev) => (prev + 1) % heroData.lawyers.length);
   };
@@ -352,17 +360,28 @@ const LawyerExplained = () => {
           </button>
 
           {/* Lawyer Content */}
-          <div className={`w-full flex flex-col md:flex-row items-center gap-2 md:gap-12 ${current % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}>
-            <div className={`flex-1 text-center ${current % 2 === 0 ? 'md:text-left' : 'md:text-right'}`}>
-              <p className="text-sm md:text-2xl font-serif italic text-[#785F3F] mb-6 leading-tight">“{currentLawyer.quote}”</p>
-              <h3 className="text-xl font-bold text-[#B89A6A]">{currentLawyer.name}</h3>
-              <p className="text-sm text-[#D2C4AE] font-bold uppercase tracking-widest mb-5">{currentLawyer.title}</p>
-              <p className="text-[#785F3F] leading-relaxed max-w-xl mx-auto md:mx-0 text-sm">{currentLawyer.desc}</p>
-            </div>
-            
-            <div className="relative w-34 h-34 md:w-80 md:h-80 shrink-0 rounded-full border-[8px] border-[#E9E3D9] shadow-2xl overflow-hidden bg-[#E9E3D9]">
-               <img src={getImgSrc(currentLawyer.image)} alt={currentLawyer.name} className="w-full h-full object-cover relative z-10" />
-            </div>
+          <div className="w-full h-full flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              <motion.div 
+                key={current}
+                initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className={`w-full flex flex-col md:flex-row items-center gap-2 md:gap-12 ${current % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}
+              >
+                <div className={`flex-1 text-center ${current % 2 === 0 ? 'md:text-left' : 'md:text-right'}`}>
+                  <p className="text-sm md:text-2xl font-serif italic text-[#785F3F] mb-6 leading-tight">“{currentLawyer.quote}”</p>
+                  <h3 className="text-xl font-bold text-[#B89A6A]">{currentLawyer.name}</h3>
+                  <p className="text-sm text-[#D2C4AE] font-bold uppercase tracking-widest mb-5">{currentLawyer.title}</p>
+                  <p className="text-[#785F3F] leading-relaxed max-w-xl mx-auto md:mx-0 text-sm">{currentLawyer.desc}</p>
+                </div>
+                
+                <div className="relative w-34 h-34 md:w-80 md:h-80 shrink-0 rounded-full border-[8px] border-[#E9E3D9] shadow-2xl overflow-hidden bg-[#E9E3D9]">
+                   <img src={getImgSrc(currentLawyer.image)} alt={currentLawyer.name} className="w-full h-full object-cover relative z-10" />
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Right Navigation Arrow (>) */}
@@ -389,26 +408,196 @@ const LawyerExplained = () => {
   );
 };
 
+const LawOfTheDayLoading = ({ isDataReady, onComplete }) => {
+  const [progress, setProgress] = useState(0);
+  const [step, setStep] = useState(0);
+  
+  const isDataReadyRef = useRef(isDataReady);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    isDataReadyRef.current = isDataReady;
+    onCompleteRef.current = onComplete;
+  }, [isDataReady, onComplete]);
+
+  const steps = [
+    "Scanning daily news feeds...",
+    "Extracting critical legal facts...",
+    "Analyzing constitutional context...",
+    "Simplifying legal jargon...",
+    "Generating contextual image...",
+  ];
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const runAnimation = async () => {
+      const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      // 0 to 56% (Lazy and slow)
+      for(let i=0; i<=56; i++) {
+        if(isCancelled) return;
+        setProgress(i);
+        await wait(80); // slow pace
+      }
+      await wait(1000); // small pause
+
+      // 57 to 74%
+      for(let i=57; i<=74; i++) {
+        if(isCancelled) return;
+        setProgress(i);
+        await wait(100); // slower
+      }
+      await wait(1200); // little pause
+
+      // 75 to 87%
+      for(let i=75; i<=87; i++) {
+        if(isCancelled) return;
+        setProgress(i);
+        await wait(120);
+      }
+      
+      // 88 to 98% (1 sec for each %)
+      for(let i=88; i<=98; i++) {
+        if(isCancelled) return;
+        setProgress(i);
+        await wait(1000); // 1 full second per percent
+      }
+
+      // Stop at 98% until generation is finished and ready to display
+      while(!isDataReadyRef.current) {
+        if(isCancelled) return;
+        await wait(200);
+      }
+      
+      // 99 to 100%
+      for(let i=99; i<=100; i++) {
+        if(isCancelled) return;
+        setProgress(i);
+        await wait(250);
+      }
+
+      await wait(500); // Final pause at 100%
+      if(!isCancelled && onCompleteRef.current) onCompleteRef.current();
+    };
+
+    runAnimation();
+    return () => { isCancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (progress < 25) setStep(0);
+    else if (progress < 50) setStep(1);
+    else if (progress < 70) setStep(2);
+    else if (progress < 85) setStep(3);
+    else setStep(4);
+  }, [progress]);
+
+  return (
+    <section className="py-24 bg-[#FBF8F2] flex justify-center px-4 watermark-bg reveal-on-scroll">
+      <div className="w-full max-w-4xl h-[500px] flex items-center justify-center bg-[#E9E3D9] rounded-[24px] border-[3px] border-[#B89A6A]/50 shadow-[0_20px_50px_rgba(184,154,106,0.15)] relative z-10 overflow-hidden">
+        
+        {/* Animated Skeleton Background */}
+        <div className="absolute inset-0 flex flex-row opacity-60 pointer-events-none animate-pulse">
+           <div className="hidden md:block w-2/5 h-full bg-[#D2C4AE]/80"></div>
+           <div className="w-full md:w-3/5 h-full p-10 flex flex-col items-center justify-center gap-6">
+              <div className="w-24 h-4 bg-[#D2C4AE] rounded-full"></div>
+              <div className="w-3/4 h-8 bg-[#D2C4AE] rounded-full mt-2"></div>
+              <div className="w-5/6 h-8 bg-[#D2C4AE] rounded-full"></div>
+              <div className="w-1/2 h-8 bg-[#D2C4AE] rounded-full"></div>
+              <div className="w-full h-24 bg-[#D2C4AE] rounded-2xl mt-4"></div>
+              <div className="w-40 h-3 bg-[#D2C4AE] rounded-full mt-auto"></div>
+           </div>
+        </div>
+
+        {/* Glassmorphism Loading Overlay */}
+        <div 
+          className="relative z-20 max-w-sm md:max-w-md w-full flex flex-col items-center gap-6 backdrop-blur-xl p-10 md:p-12 rounded-3xl border border-white/60 shadow-[0_8px_32px_rgba(184,154,106,0.25)]"
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.25)' }}
+        >
+          
+          <div className="flex items-center gap-3 mb-2">
+            <Loader2 className="animate-spin text-[#B89A6A]" size={20} />
+            <span className="text-[#B89A6A] font-bold uppercase tracking-widest text-[10px] md:text-xs">AI Agent at work</span>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 15, filter: "blur(8px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className="text-6xl md:text-7xl font-serif text-[#785F3F] font-bold tracking-tight drop-shadow-sm flex items-end gap-1"
+          >
+            {Math.floor(progress)}<span className="text-3xl md:text-4xl text-[#B89A6A] mb-1 md:mb-2">%</span>
+          </motion.div>
+
+          <div className="w-full h-1.5 bg-[#D2C4AE]/40 rounded-full overflow-hidden relative shadow-inner mt-2">
+            <motion.div 
+              className="absolute top-0 left-0 bottom-0 bg-gradient-to-r from-[#B89A6A] to-[#785F3F] rounded-full shadow-[0_0_10px_rgba(184,154,106,0.8)]"
+              initial={{ width: "0%" }}
+              animate={{ width: `${progress}%` }}
+              transition={{ ease: "linear", duration: 0.1 }}
+            />
+          </div>
+
+          <div className="h-6 flex items-center justify-center relative w-full mt-2">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.8, ease: "easeInOut" }}
+                className="absolute text-[10px] md:text-xs font-bold uppercase tracking-widest text-[#785F3F] text-center w-full"
+              >
+                {steps[step]}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const LawOfTheDay = () => {
+  const getInitialCache = () => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const cachedStr = localStorage.getItem('dailyLawCache');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached && cached.fetchDateString === todayStr) return cached;
+      }
+    } catch(e) {
+      console.error("Cache read error:", e);
+    }
+    return null;
+  };
+
+  const initialCache = getInitialCache();
   const [flipDegree, setFlipDegree] = useState(0);
-  const [lawData, setLawData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [lawData, setLawData] = useState(initialCache);
+  const [isDataReady, setIsDataReady] = useState(!!initialCache);
+  const [showLoading, setShowLoading] = useState(!initialCache);
   const navigate = useNavigate();
 
   useEffect(() => {
     axios.get('/ai/law-of-day')
-      .then(res => { setLawData(res.data); setLoading(false); })
-      .catch(err => { console.error("AI Error:", err); setLoading(false); });
+      .then(res => { 
+        if (res.data) {
+          localStorage.setItem('dailyLawCache', JSON.stringify(res.data));
+          setLawData(res.data); 
+        }
+        setIsDataReady(true); 
+      })
+      .catch(err => { 
+        console.error("AI Error:", err); 
+        setIsDataReady(true); 
+      });
   }, []);
 
-  if (loading) return (
-    <section className="py-24 bg-[#FBF8F2] flex justify-center px-4 watermark-bg reveal-on-scroll">
-        <div className="w-full max-w-4xl h-[450px] flex flex-col items-center justify-center bg-[#E9E3D9] rounded-[24px] border border-[#D2C4AE] gap-4 shadow-sm relative z-10">
-            <Loader2 className="animate-spin text-[#B89A6A]" size={40} />
-            <p className="text-sm text-[#785F3F] font-serif tracking-widest">AI IS ANALYZING TODAY'S NEWS...</p>
-        </div>
-    </section>
-  );
+  if (showLoading) return <LawOfTheDayLoading isDataReady={isDataReady} onComplete={() => setShowLoading(false)} />;
 
   const data = lawData || {
      title: "Legal Update Unavailable", summary: "Could not fetch updates.",
@@ -418,38 +607,67 @@ const LawOfTheDay = () => {
   const handleFlip = () => setFlipDegree(prev => prev + 180);
 
   return (
-    <section className="py-24 bg-[#FBF8F2] flex justify-center px-4 watermark-bg reveal-on-scroll">
-      <div className="w-full max-w-4xl h-[450px] cursor-pointer group relative z-10 mirror-container" onClick={handleFlip}>
+    <section 
+      className="py-24 bg-[#FBF8F2] flex justify-center px-4 watermark-bg"
+      style={{ animation: 'fadeInUp 0.8s ease-out forwards' }}
+    >
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      <div className="w-full max-w-4xl h-[500px] cursor-pointer group relative z-10 mirror-container" onClick={handleFlip}>
         <div className="mirror-inner" style={{ transform: `rotateY(${flipDegree}deg)` }}>
           
           {/* Front Face (0deg offset) */}
-          <div className="mirror-face bg-[#E9E3D9] border-[3px] border-[#B89A6A]/50 shadow-[0_20px_50px_rgba(184,154,106,0.15)] rounded-[24px] p-12 items-center justify-center text-center">
-            <div className="flex items-center gap-2 mb-8">
-                <Sparkles size={24} className="text-[#B89A6A] fill-[#B89A6A]" />
-                <h4 className="text-base font-bold uppercase tracking-widest text-[#B89A6A]">Law of the Day</h4>
+          <div className="mirror-face bg-[#E9E3D9] border-[3px] border-[#B89A6A]/50 shadow-[0_20px_50px_rgba(184,154,106,0.15)] rounded-[24px] overflow-hidden !flex-row">
+            
+            {data?.imageUrl && (
+              <div className="hidden md:block w-2/5 h-full relative shrink-0">
+                <img src={typeof data.imageUrl === 'string' && data.imageUrl.startsWith('/uploads') ? BASE_URL + data.imageUrl : data.imageUrl} alt="Law of the day" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#E9E3D9]"></div>
+              </div>
+            )}
+
+            <div className={`flex flex-col items-center justify-start text-center p-8 md:p-10 ${data.imageUrl ? 'md:w-3/5 w-full' : 'w-full'} h-full relative`}>
+              {/* Top Label */}
+              <div className="flex items-center gap-2 mb-2 shrink-0 mt-2">
+                  <Sparkles size={18} className="text-[#B89A6A] fill-[#B89A6A]" />
+                  <h4 className="text-sm font-bold uppercase tracking-widest text-[#B89A6A]">Law of the Day</h4>
+              </div>
+              
+              {/* Center Content */}
+              <div className="flex-1 flex flex-col items-center justify-center w-full">
+                <h2 className="text-2xl md:text-3xl font-serif text-[#785F3F] leading-tight px-2 mb-6 line-clamp-3 drop-shadow-sm">
+                  {data.title}
+                </h2>
+                
+                <div className="w-full max-w-md px-6 py-4 bg-[#FBF8F2] rounded-2xl text-xs md:text-sm font-bold text-[#785F3F] border border-[#D2C4AE] shadow-sm flex items-center justify-center">
+                   <span className="line-clamp-3 leading-relaxed">{data.highlights}</span>
+                </div>
+              </div>
+              
+              {/* Bottom Text */}
+              <p className="text-[10px] md:text-xs text-[#B89A6A] transition-colors flex items-center gap-2 font-bold tracking-widest uppercase shrink-0 mb-2">
+                  CLICK TO REVEAL AI INSIGHT <Sparkles size={14}/>
+              </p>
             </div>
-            <h2 className="text-4xl md:text-5xl font-serif text-[#785F3F] mb-8 leading-tight px-6">{data.title}</h2>
-            <div className="px-8 py-3 bg-[#FBF8F2] rounded-full text-base font-bold text-[#785F3F] mb-10 border border-[#D2C4AE] shadow-sm">
-               {data.highlights}
-            </div>
-            <p className="text-sm text-[#B89A6A] mt-auto transition-colors flex items-center gap-2 font-bold tracking-widest uppercase">
-                CLICK TO REVEAL AI INSIGHT <Sparkles size={16}/>
-            </p>
           </div>
 
           {/* Back Face (180deg offset) */}
-          <div className="mirror-face mirror-back bg-[#FFFFFF] text-[#785F3F] border-[3px] border-[#B89A6A] shadow-[0_20px_50px_rgba(184,154,106,0.25)] rounded-[24px] p-10 items-center overflow-y-auto scrollbar-hide">
-            <h3 className="text-2xl font-serif font-bold text-[#B89A6A] mb-4 flex items-center gap-2 shrink-0">
+          <div className="mirror-face mirror-back bg-[#FFFFFF] text-[#785F3F] border-[3px] border-[#B89A6A] shadow-[0_20px_50px_rgba(184,154,106,0.25)] rounded-[24px] p-10 items-center overflow-hidden flex flex-col justify-between">
+            <h3 className="text-2xl font-serif font-bold text-[#B89A6A] mb-2 md:mb-4 flex items-center gap-2 shrink-0">
                <Sparkles className="w-6 h-6" /> AI Summary
             </h3>
-            <p className="text-[#785F3F] text-center leading-relaxed text-lg mb-6 px-4">
+            <p className="text-[#785F3F] text-center leading-relaxed text-base md:text-lg mb-4 md:mb-6 px-2 md:px-4 line-clamp-3 md:line-clamp-4">
               {data.summary}
             </p>
-            <div className="w-full bg-[#E9E3D9]/50 py-5 px-6 rounded-xl border border-[#D2C4AE] text-center shrink-0 mb-8">
-                <span className="text-xs font-bold uppercase text-[#B89A6A] block mb-3 tracking-widest">Why this matters to you</span>
-                <span className="text-base text-[#785F3F] italic leading-relaxed font-serif">"{data.whyItMatters}"</span>
+            <div className="w-full bg-[#E9E3D9]/50 py-4 px-4 md:py-5 md:px-6 rounded-xl border border-[#D2C4AE] text-center shrink-0 mb-6 md:mb-8">
+                <span className="text-[10px] md:text-xs font-bold uppercase text-[#B89A6A] block mb-2 md:mb-3 tracking-widest">Why this matters to you</span>
+                <span className="text-sm md:text-base text-[#785F3F] italic leading-relaxed font-serif line-clamp-3 md:line-clamp-4">"{data.whyItMatters}"</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); navigate('/news'); }} className="px-8 py-4 bg-[#B89A6A] text-[#F5F1E8] rounded-full text-sm font-bold tracking-wider hover:bg-[#785F3F] transition-all shadow-md shrink-0 uppercase">
+            <button onClick={(e) => { e.stopPropagation(); navigate('/news'); }} className="px-6 md:px-8 py-3 md:py-4 bg-[#B89A6A] text-[#F5F1E8] rounded-full text-xs md:text-sm font-bold tracking-wider hover:bg-[#785F3F] transition-all shadow-md shrink-0 uppercase mt-auto">
                 Read Full News in Portal →
             </button>
           </div>
@@ -509,8 +727,8 @@ const KnowWhatToDo = ({ guides = [] }) => {
           <h2 className="text-4xl md:text-5xl font-serif text-[#B89A6A] font-bold mb-12 text-center md:text-left">Know What To Do</h2>
           
           <div className="flex overflow-x-auto gap-8 pb-8 scrollbar-hide snap-x">
-            {guides.length > 0 ? guides.map((guide) => (
-              <div key={guide._id} onClick={() => setSelectedGuide(guide)} className="snap-center min-w-[320px] bg-[#FFFFFF] border border-[#D2C4AE] rounded-[24px] p-10 hover:border-[#B89A6A] hover:shadow-[0_15px_35px_rgba(184,154,106,0.15)] hover:-translate-y-2 transition-all cursor-pointer group flex flex-col">
+            {guides.length > 0 ? guides.map((guide, idx) => (
+              <div key={guide._id ? `${guide._id}-${idx}` : `guide-idx-${idx}`} onClick={() => setSelectedGuide(guide)} className="snap-center min-w-[320px] bg-[#FFFFFF] border border-[#D2C4AE] rounded-[24px] p-10 hover:border-[#B89A6A] hover:shadow-[0_15px_35px_rgba(184,154,106,0.15)] hover:-translate-y-2 transition-all cursor-pointer group flex flex-col">
                 <p className="text-[10px] font-bold text-[#B89A6A] uppercase mb-4 tracking-widest">Situation Guide</p>
                 <h3 className="text-3xl font-serif font-bold text-[#785F3F] mb-4 group-hover:text-[#B89A6A] transition-colors">{guide.title}</h3>
                 <p className="text-base text-[#785F3F]/80 leading-relaxed mb-8 flex-1">Tap to view step-by-step guidance on your immediate rights and required legal actions.</p>
